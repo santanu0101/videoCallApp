@@ -30,9 +30,34 @@ function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+  const [me, setMe] = useState("");
+  const [onlineUsers, setOnlineUser] = useState([]);
 
+  const hasJoined = useRef(false);
   const socket = SocketContext.getSocket();
   console.log(socket)
+
+  useEffect(()=>{
+    if(user && socket && !hasJoined.current){
+      socket.emit("join", {id: user.user._id, name: user.user.username})
+      hasJoined.current = true
+    }
+
+    socket.on("me",(id)=>setMe(id));
+
+    socket.on("online-users", (onlineUser)=>{
+      setOnlineUser(onlineUser)
+    })
+
+    return ()=>{
+      socket.off("me");
+      socket.off("online-users");
+    }
+  },[user, socket])
+
+  console.log(onlineUsers)
+  const isOnlineUser = (userId)=>onlineUsers.some((u)=>u.userId === userId);
+
 
   const allusers = async () => {
     try {
@@ -131,9 +156,9 @@ function Dashboard() {
                   alt={`${user.username}'s profile`}
                   className="w-10 h-10 rounded-full border border-white"
                 />
-                {/* {isOnlineUser(user._id) && (
+                {isOnlineUser(user._id) && (
                   <span className="absolute top-0 right-0 w-3 h-3 bg-green-500 border-2 border-gray-800 rounded-full shadow-lg animate-bounce"></span>
-                )} */}
+                )}
               </div>
               <div className="flex flex-col">
                 <span className="font-bold text-sm">{user.username}</span>
