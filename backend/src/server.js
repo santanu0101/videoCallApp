@@ -2,14 +2,22 @@ import express from "express";
 import dotenv from "dotenv";
 import cors from "cors";
 import cookieParser from "cookie-parser";
+
 import { connectDb } from "./lib/db.js";
 import authRoute from "./routes/auth.route.js"
 import userRoute from "./routes/user.route.js"
+
+import {createServer} from 'http'
+import {Server} from 'socket.io'
+// import { Socket } from "dgram";
+
 
 dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
+
+const server = createServer(app);
 
 // 📌 middleware to handle cors ⚒️💻🪪📷🎥💡⌛🌐💀
 const allowedOrigins = [process.env.FRONTEND_URL];
@@ -34,6 +42,8 @@ app.use(cookieParser());
 // 📌 routes
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
+
+
 
 
 // 📌server and db start

@@ -95,7 +95,7 @@ export const Login = async (req, res) => {
 
 export const Logout = async (req, res) => {
     try {
-        console.log(req.user)
+        // console.log(req.user)
         res.clearCookie('jwt',{ 
             path:'/',
             httpOnly:true,
