@@ -4,13 +4,12 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 
 import { connectDb } from "./lib/db.js";
-import authRoute from "./routes/auth.route.js"
-import userRoute from "./routes/user.route.js"
+import authRoute from "./routes/auth.route.js";
+import userRoute from "./routes/user.route.js";
 
-import {createServer} from 'http'
-import {Server} from 'socket.io'
+import { createServer } from "http";
+import { Server } from "socket.io";
 // import { Socket } from "dgram";
-
 
 dotenv.config();
 
@@ -43,18 +42,62 @@ app.use(cookieParser());
 app.use("/api/auth", authRoute);
 app.use("/api/user", userRoute);
 
+const io = new Server(server, {
+  pingTimeOut: 60000,
+  cors: {
+    origin: allowedOrigins[0],
+    methods: ["GET", "POST"],
+  },
+});
 
+let onlineUser = []
 
+io.on("connection", (socket) => {
+  console.log(`Info - new Connection ${socket.id}`);
+  // socket id send to the connected user
+  socket.emit("me", socket.id);
+
+  socket.on("join", (user) => {
+    if (!user || !user.id) {
+      console.log("warring- Invalid User data on Joun");
+      return;
+    }
+    socket.join(user.id);
+    const existingUser = onlineUser.find((u) => u.userId === user.id);
+    if (existingUser) {
+      existingUser.socketId = socket.id;
+    } else {
+      onlineUser.push({
+        userId: user.id,
+        name: user.name,
+        socketId: socket.id,
+      });
+    }
+
+    io.emit("online-users", onlineUser);
+  });
+
+  socket.on("disconnect", () => {
+    const user = onlineUser.find((u) => u.socketId === socket.id);
+    onlineUser = onlineUser.filter((u) => u.socketId !== socket.id);
+
+    io.emit("online-users", onlineUser);
+
+    socket.broadcast.emit("discounnectUser", { disUser: socket.id });
+
+    console.log(`[INFO] Disconnected: ${socket.id}`);
+  });
+});
 
 // 📌server and db start
-;(async () => {
+(async () => {
   try {
     await connectDb();
-    app.listen(port, () => {
+    server.listen(port, () => {
       console.log(`🌐 http://localhost:${port}`);
     });
   } catch (error) {
-    console.log("💀 Server Error: ",error);
+    console.log("💀 Server Error: ", error);
     process.exit(1);
   }
 })();

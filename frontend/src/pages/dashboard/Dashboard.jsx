@@ -18,6 +18,7 @@ import apiClient from "../../apiClient";
 import { useUser } from "../../context/userContextApi";
 import { RiLogoutBoxLine } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
+import SocketContext from "../socket/SocketContext";
 // import Peer from "simple-peer";
 
 function Dashboard() {
@@ -29,6 +30,9 @@ function Dashboard() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const socket = SocketContext.getSocket();
+  console.log(socket)
 
   const allusers = async () => {
     try {

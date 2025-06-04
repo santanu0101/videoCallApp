@@ -15,7 +15,7 @@ export const UserProvider = ({ children }) => {
     useEffect(() => {
         setLoading(true);
         const storedUser = localStorage.getItem("userData");
-        console.log("Fetched user from localStorage:", storedUser);
+        // console.log("Fetched user from localStorage:", storedUser);
         if (storedUser) {
             setUser(JSON.parse(storedUser));
         }
