@@ -84,8 +84,8 @@ function Dashboard() {
     // }
     try {
       await apiClient.post("/auth/logout");
-      // socket.off("disconnect");
-      // socket.disconnect();
+      socket.off("disconnect");
+      socket.disconnect();
       // socketInstance.setSocket();
       updateUser(null);
       localStorage.removeItem("userData");
