@@ -60,9 +60,6 @@ function Dashboard() {
     };
   }, [user, socket]);
 
-  console.log(onlineUsers);
-  const isOnlineUser = (userId) => onlineUsers.some((u) => u.userId === userId);
-
   const allusers = async () => {
     try {
       setLoading(true);
@@ -80,6 +77,30 @@ function Dashboard() {
   useEffect(() => {
     allusers();
   }, []);
+
+  const isOnlineUser = (userId) => onlineUsers.some((u) => u.userId === userId);
+
+  const startCall = async () => {
+    try {
+      const currentStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        },
+      });
+
+      setStream(currentStream);
+      if (myVideo.current) {
+        myVideo.current.srcObject = currentStream;
+        myVideo.current.muted = true;
+        myVideo.current.volume = 0;
+      }
+      setIsSidebarOpen(false)
+    } catch (error) {
+      console.log("Error accessing media device ", error);
+    }
+  };
 
   const handleLogout = async () => {
     // if (callAccepted || reciveCall) {
@@ -106,7 +127,7 @@ function Dashboard() {
   );
 
   const handelSelectedUser = (user) => {
-    console.log("hello", user);
+    // console.log("hello", user);
     const selected = filteredUsers.find((user) => user._id === user._id);
     setSelectedUser(user);
     setShowReciverDetailPopUp(true);
@@ -198,12 +219,26 @@ function Dashboard() {
         </button>
 
         {selectedUser ? (
-          <div className="relative w-full h-screen bg-black flex items-center justify-center">
-            <video className="absolute top-0 left-0 w-full h-full object-contain rounded-lg" />
-            <video className="absolute top-0 left-0 w-full h-full object-contain rounded-lg" />
+          <div>
+            <div className="absolute bottom-[75px] md:bottom-0 right-1 bg-gray-900 rounded-lg overflow-hidden shadow-lg">
+              <video
+                ref={myVideo}
+                autoPlay
+                playsInline
+                className="w-32 h-40 md:w-56 md:h-52 object-cover rounded-lg"
+              />
+            </div>
           </div>
         ) : (
-          <>
+          <div className="flex-1 p-6 md:ml-72 text-white">
+            {/* Mobile Sidebar Toggle */}
+            <button
+              type="button"
+              className="md:hidden text-2xl text-black mb-4"
+              onClick={() => setIsSidebarOpen(true)}>
+              <FaBars />
+            </button>
+
             {/* Welcome Section */}
             <div className="flex items-center gap-5 mb-6 bg-gray-800 p-5 rounded-xl shadow-md">
               <div className="w-20 h-20 text-6xl">
@@ -233,7 +268,7 @@ function Dashboard() {
                 <li>🎥 Click on a user to start a video call instantly!</li>
               </ul>
             </div>
-          </>
+          </div>
         )}
 
         {showReciverDetailPopUp && showReciverDetails && (
@@ -246,14 +281,18 @@ function Dashboard() {
                   alt="User"
                   className="w-20 h-20 rounded-full border-4 border-blue-500"
                 />
-                <h3 className="text-lg font-bold mt-3">{showReciverDetails.username}</h3>
-                <p className="text-sm text-gray-500">{showReciverDetails.email}</p>
+                <h3 className="text-lg font-bold mt-3">
+                  {showReciverDetails.username}
+                </h3>
+                <p className="text-sm text-gray-500">
+                  {showReciverDetails.email}
+                </p>
 
                 <div className="flex gap-4 mt-5">
                   <button
                     onClick={() => {
                       setSelectedUser(showReciverDetails._id);
-                      //startCall(); // function that handles media and calling
+                      startCall(); // function that handles media and calling
                       setShowReciverDetailPopUp(false);
                     }}
                     className="bg-green-600 text-white px-4 py-1 rounded-lg w-28 flex items-center gap-2 justify-center">
