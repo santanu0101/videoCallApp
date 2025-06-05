@@ -32,32 +32,36 @@ function Dashboard() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [me, setMe] = useState("");
   const [onlineUsers, setOnlineUser] = useState([]);
+  const [stream, setStream] = useState();
+  const [showReciverDetailPopUp, setShowReciverDetailPopUp] = useState(false);
+  const [showReciverDetails, setShowReciverDetails] = useState(null);
 
   const hasJoined = useRef(false);
-  const socket = SocketContext.getSocket();
-  console.log(socket)
+  const myVideo = useRef();
 
-  useEffect(()=>{
-    if(user && socket && !hasJoined.current){
-      socket.emit("join", {id: user.user._id, name: user.user.username})
-      hasJoined.current = true
+  const socket = SocketContext.getSocket();
+  console.log(socket);
+
+  useEffect(() => {
+    if (user && socket && !hasJoined.current) {
+      socket.emit("join", { id: user.user._id, name: user.user.username });
+      hasJoined.current = true;
     }
 
-    socket.on("me",(id)=>setMe(id));
+    socket.on("me", (id) => setMe(id));
 
-    socket.on("online-users", (onlineUser)=>{
-      setOnlineUser(onlineUser)
-    })
+    socket.on("online-users", (onlineUser) => {
+      setOnlineUser(onlineUser);
+    });
 
-    return ()=>{
+    return () => {
       socket.off("me");
       socket.off("online-users");
-    }
-  },[user, socket])
+    };
+  }, [user, socket]);
 
-  console.log(onlineUsers)
-  const isOnlineUser = (userId)=>onlineUsers.some((u)=>u.userId === userId);
-
+  console.log(onlineUsers);
+  const isOnlineUser = (userId) => onlineUsers.some((u) => u.userId === userId);
 
   const allusers = async () => {
     try {
@@ -101,9 +105,12 @@ function Dashboard() {
       u.email.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handelSelectedUser = (userId) => {
-    const selected = filteredUsers.find((user) => user._id === userId);
-    setSelectedUser(userId);
+  const handelSelectedUser = (user) => {
+    console.log("hello", user);
+    const selected = filteredUsers.find((user) => user._id === user._id);
+    setSelectedUser(user);
+    setShowReciverDetailPopUp(true);
+    setShowReciverDetails(user);
   };
 
   return (
@@ -149,7 +156,7 @@ function Dashboard() {
                   ? "bg-green-600"
                   : "bg-gradient-to-r from-purple-600 to-blue-400"
               }`}
-              onClick={() => handelSelectedUser(user._id)}>
+              onClick={() => handelSelectedUser(user)}>
               <div className="relative">
                 <img
                   src={user.profilePic || "/default-avatar.png"}
@@ -190,37 +197,79 @@ function Dashboard() {
           <FaBars />
         </button>
 
-        {/* Welcome */}
-        <div className="flex items-center gap-5 mb-6 bg-gray-800 p-5 rounded-xl shadow-md">
-          <div className="w-20 h-20 text-6xl">
-            👋{/* <Lottie animationData={wavingAnimation} loop autoplay /> */}
+        {selectedUser ? (
+          <div className="relative w-full h-screen bg-black flex items-center justify-center">
+            <video className="absolute top-0 left-0 w-full h-full object-contain rounded-lg" />
+            <video className="absolute top-0 left-0 w-full h-full object-contain rounded-lg" />
           </div>
-          <div>
-            <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">
-              Hey {user.user?.username || "Guest"}! 👋
-            </h1>
-            <p className="text-lg text-gray-300 mt-2">
-              Ready to <strong>connect with friends instantly? </strong>
-              Just <strong>select a user</strong> and start your video call!
-              🎥✨
-            </p>
-          </div>
-        </div>
+        ) : (
+          <>
+            {/* Welcome Section */}
+            <div className="flex items-center gap-5 mb-6 bg-gray-800 p-5 rounded-xl shadow-md">
+              <div className="w-20 h-20 text-6xl">
+                👋
+                {/* <Lottie animationData={wavingAnimation} loop autoplay /> */}
+              </div>
+              <div>
+                <h1 className="text-4xl font-extrabold bg-gradient-to-r from-blue-400 to-purple-500 text-transparent bg-clip-text">
+                  Hey {user?.username || "Guest"}! 👋
+                </h1>
+                <p className="text-lg text-gray-300 mt-2">
+                  Ready to <strong>connect with friends instantly? </strong>
+                  Just <strong>select a user</strong> and start your video call!
+                  🎥✨
+                </p>
+              </div>
+            </div>
 
-        {/* Instructions */}
-        <div className="bg-gray-800 p-4 rounded-lg shadow-lg text-sm">
-          <h2 className="text-lg font-semibold mb-2">
-            💡 How to Start a Video Call?
-          </h2>
-          <ul className="list-disc pl-5 space-y-2 text-gray-400">
-            <li>📌 Open the sidebar to see online users.</li>
-            <li>🔍 Use the search bar to find a specific person.</li>
-            <li>🎥 Click on a user to start a video call instantly!</li>
-          </ul>
-        </div>
+            {/* Instructions */}
+            <div className="bg-gray-800 p-4 rounded-lg shadow-lg text-sm">
+              <h2 className="text-lg font-semibold mb-2">
+                💡 How to Start a Video Call?
+              </h2>
+              <ul className="list-disc pl-5 space-y-2 text-gray-400">
+                <li>📌 Open the sidebar to see online users.</li>
+                <li>🔍 Use the search bar to find a specific person.</li>
+                <li>🎥 Click on a user to start a video call instantly!</li>
+              </ul>
+            </div>
+          </>
+        )}
+
+        {showReciverDetailPopUp && showReciverDetails && (
+          <div className="fixed inset-0 bg-transparent bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+              <div className="flex flex-col items-center">
+                <p className="font-black text-xl mb-2">User Details</p>
+                <img
+                  src={showReciverDetails.profilePic || "/default-avatar.png"}
+                  alt="User"
+                  className="w-20 h-20 rounded-full border-4 border-blue-500"
+                />
+                <h3 className="text-lg font-bold mt-3">{showReciverDetails.username}</h3>
+                <p className="text-sm text-gray-500">{showReciverDetails.email}</p>
+
+                <div className="flex gap-4 mt-5">
+                  <button
+                    onClick={() => {
+                      setSelectedUser(showReciverDetails._id);
+                      //startCall(); // function that handles media and calling
+                      setShowReciverDetailPopUp(false);
+                    }}
+                    className="bg-green-600 text-white px-4 py-1 rounded-lg w-28 flex items-center gap-2 justify-center">
+                    Call <FaPhoneAlt />
+                  </button>
+                  <button
+                    onClick={() => setShowReciverDetailPopUp(false)}
+                    className="bg-gray-400 text-white px-4 py-1 rounded-lg w-28">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-
-
     </div>
   );
 }
