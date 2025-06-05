@@ -19,7 +19,7 @@ import { useUser } from "../../context/userContextApi";
 import { RiLogoutBoxLine } from "react-icons/ri";
 import { useNavigate } from "react-router-dom";
 import SocketContext from "../socket/SocketContext";
-// import Peer from "simple-peer";
+import Peer from "simple-peer";
 
 function Dashboard() {
   const { user, updateUser } = useUser();
@@ -35,7 +35,15 @@ function Dashboard() {
   const [stream, setStream] = useState();
   const [showReciverDetailPopUp, setShowReciverDetailPopUp] = useState(false);
   const [showReciverDetails, setShowReciverDetails] = useState(null);
+  const [recivingCall, setRecivingCall] = useState(false);
+  const [caller, setCaller] = useState(null);
+  const [callerSignal, setCallerSignal] =useState(null);
+  const [callAccepted, setCallAccepted] = useState(false);
+  const [callRejectedPopUp, setCallRejectedPopUp]=useState(false);
+  const [callRejectedUser, setCallRejectedUser]=useState(null);
 
+
+  const connectionRef = useRef();
   const hasJoined = useRef(false);
   const myVideo = useRef();
 
@@ -54,12 +62,31 @@ function Dashboard() {
       setOnlineUser(onlineUser);
     });
 
+    socket.on("callToUser",(data)=>{
+      setRecivingCall(true);
+      setCaller(data);
+      setCallerSignal(data.signal);
+    })
+
+    socket.on("callRejected",(data)=>{
+      console.log("Received callRejected", data);
+      setCallRejectedPopUp(true);
+      setCallRejectedUser(data)
+    })
+
+    socket.on("userUnavailable", (data) => {
+      alert(data.message || "User is not available."); // Show an alert.
+    });
+
     return () => {
       socket.off("me");
       socket.off("online-users");
     };
   }, [user, socket]);
 
+  // console.log(me);
+  // console.log(caller);
+  
   const allusers = async () => {
     try {
       setLoading(true);
@@ -96,11 +123,49 @@ function Dashboard() {
         myVideo.current.muted = true;
         myVideo.current.volume = 0;
       }
+
+      currentStream.getVideoTracks().forEach(track => (track.enabled =true))
       setIsSidebarOpen(false)
+      setCallRejectedPopUp(false)
+      // console.log("selecytew",showReciverDetails._id)
+
+      const peer = new Peer({
+        initiator: true,
+        trickle: false,
+        stream: currentStream
+      })
+
+      peer.on("signal", (data)=>{
+        console.log("call to usereith signal");
+        socket.emit("callToUser",{
+          callToUserId: showReciverDetails._id,
+          signalData: data,
+          from: me,
+          name: user.user.username,
+          email: user.user.email,
+          profilePic: user.user.profilePic
+        })
+        
+      })
+
+      connectionRef.current = peer
+
     } catch (error) {
       console.log("Error accessing media device ", error);
     }
   };
+
+
+  const handleRejectCall = ()=>{
+    setRecivingCall(false)
+    setCallAccepted(false)
+
+    socket.emit("reject-call",{
+      to: caller.form,
+      name: user.user.username,
+      profilePic: user.user.profilePic
+    })
+  }
 
   const handleLogout = async () => {
     // if (callAccepted || reciveCall) {
@@ -308,6 +373,78 @@ function Dashboard() {
             </div>
           </div>
         )}
+
+        {recivingCall && !callAccepted && (
+          <div className="fixed inset-0 bg-transparent bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <div className="flex flex-col items-center">
+              <p className="text-black text-xl mb-2">Call From...</p>
+              <img
+                src={caller?.profilePic || "/default-avatar.png"}
+                alt="Caller"
+                className="w-20 h-20 rounded-full border-4 border-green-500"
+              />
+              <h3 className="text-lg font-bold text-black mt-3">{caller?.name}</h3>
+              <p className="text-sm text-gray-500">{caller?.email}</p>
+              <div className="flex gap-4 mt-5">
+                <button
+                  type="button"
+                  // onClick={handelacceptCall}
+                  className="bg-green-500 text-white px-4 py-1 rounded-lg w-28 flex gap-2 justify-center items-center"
+                >
+                  Accept <FaPhoneAlt />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRejectCall}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg w-28 flex gap-2 justify-center items-center"
+                >
+                  Reject <FaPhoneSlash />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
+        {callRejectedPopUp && (
+        <div className="fixed inset-0 bg-transparent bg-opacity-30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6">
+            <div className="flex flex-col items-center">
+              <p className="text-black text-xl mb-2">Call Rejected From...</p>
+              <img
+                src={callRejectedUser?.profilePic || "/default-avatar.png"}
+                alt="Caller"
+                className="w-20 h-20 rounded-full border-4 border-green-500"
+              />
+              <h3 className="text-lg font-bold text-black mt-3">{callRejectedUser?.name}</h3>
+              <div className="flex gap-4 mt-5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    startCall(); // function that handles media and calling
+                  }}
+                  className="bg-green-500 text-white px-4 py-1 rounded-lg w-28 flex gap-2 justify-center items-center"
+                >
+                  Call Again <FaPhoneAlt />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    // endCallCleanup();
+                    setCallRejectedPopUp(false);
+                    setShowReciverDetailPopUp(false);
+                  }}
+                  className="bg-red-500 text-white px-4 py-2 rounded-lg w-28 flex gap-2 justify-center items-center"
+                >
+                  Back <FaPhoneSlash />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        )}
+
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import userRoute from "./routes/user.route.js";
 
 import { createServer } from "http";
 import { Server } from "socket.io";
+import { format } from "path";
 // import { Socket } from "dgram";
 
 dotenv.config();
@@ -76,6 +77,37 @@ io.on("connection", (socket) => {
 
     io.emit("online-users", onlineUser);
   });
+
+  socket.on("callToUser",(data)=>{
+    console.log("Incomming call from ",data);
+    
+    const call = onlineUser.find((user)=>user.userId === data.callToUserId)
+    if(!call){
+      // console.log("call to user id", call)
+      socket.emit("userUnavailable", {message: `User is offline`})
+      return;
+    }
+
+    //emit an event to the reciver socket(caller)
+    io.to(call.socketId).emit("callToUser", {
+      signal: data.signalData,
+      form: data.from,
+      name: data.name,
+      email: data.email,
+      profilePic: data.profilePic,
+
+    })
+  })
+
+
+  socket.on("reject-call",(data)=>{
+    // console.log(data)
+    io.to(data.to).emit("callRejected",{
+      name:data.name,
+      profilePic: data.profilePic
+    })
+  })
+
 
   socket.on("disconnect", () => {
     const user = onlineUser.find((u) => u.socketId === socket.id);
