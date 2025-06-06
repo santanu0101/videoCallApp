@@ -79,7 +79,7 @@ io.on("connection", (socket) => {
   });
 
   socket.on("callToUser",(data)=>{
-    console.log("Incomming call from ",data);
+    // console.log("Incomming call from ",data);
     
     const call = onlineUser.find((user)=>user.userId === data.callToUserId)
     if(!call){
@@ -96,6 +96,14 @@ io.on("connection", (socket) => {
       email: data.email,
       profilePic: data.profilePic,
 
+    })
+  })
+
+  socket.on("answeredCall",(data)=>{
+    // console.log(data)
+    io.to(data.to).emit("callAccepted",{
+      signal:data.signal,
+      from:data.from
     })
   })
 
