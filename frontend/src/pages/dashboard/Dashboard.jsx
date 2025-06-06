@@ -131,6 +131,7 @@ function Dashboard() {
       currentStream.getVideoTracks().forEach((track) => (track.enabled = true));
       setIsSidebarOpen(false);
       setCallRejectedPopUp(false);
+      setSelectedUser(showReciverDetails._id)
       // console.log("selecytew",showReciverDetails._id)
 
       const peer = new Peer({
@@ -160,6 +161,7 @@ function Dashboard() {
       });
 
       socket.once("callAccepted", (data) => {
+        console.log("this is data",data?.form)
         setCallRejectedPopUp(false);
         setCallAccepted(true);
         setCaller(data.from);
@@ -231,7 +233,7 @@ function Dashboard() {
     setCallAccepted(false);
 
     socket.emit("reject-call", {
-      to: caller.form,
+      to: caller.from,
       name: user.user.username,
       profilePic: user.user.profilePic,
     });
@@ -354,7 +356,7 @@ function Dashboard() {
         </button>
 
         {selectedUser || recivingCall || callAccepted ? (
-          <div>
+          <div className="relative w-full h-screen bg-black flex items-center justify-center">
             <video
               ref={reciverVideo}
               autoPlay

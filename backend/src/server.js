@@ -91,7 +91,7 @@ io.on("connection", (socket) => {
     //emit an event to the reciver socket(caller)
     io.to(call.socketId).emit("callToUser", {
       signal: data.signalData,
-      form: data.from,
+      from: data.from,
       name: data.name,
       email: data.email,
       profilePic: data.profilePic,
