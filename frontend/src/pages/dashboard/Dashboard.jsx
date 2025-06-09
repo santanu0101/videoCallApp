@@ -17,7 +17,7 @@ import { FaPhoneSlash } from "react-icons/fa6";
 import apiClient from "../../apiClient";
 import { useUser } from "../../context/userContextApi";
 import { RiLogoutBoxLine } from "react-icons/ri";
-import { useNavigate } from "react-router-dom";
+import { data, useNavigate } from "react-router-dom";
 import SocketContext from "../socket/SocketContext";
 import Peer from "simple-peer";
 
@@ -41,14 +41,25 @@ function Dashboard() {
   const [callAccepted, setCallAccepted] = useState(false);
   const [callRejectedPopUp, setCallRejectedPopUp] = useState(false);
   const [callRejectedUser, setCallRejectedUser] = useState(null);
+  const [callerWating, setCallerWating] = useState(false)
+
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isCamOn, setIsCamOn] = useState(true);
 
   const connectionRef = useRef();
   const hasJoined = useRef(false);
   const myVideo = useRef();
   const reciverVideo = useRef();
 
+  const ringtone = new Howl({
+    src: ["/ringtone.mp3"], // ✅ Replace with your ringtone file
+    loop: false,  // ✅ Keep ringing until stopped
+    volume: 1.0, // ✅ Full volume
+  });
+
   const socket = SocketContext.getSocket();
   console.log(socket);
+
 
   useEffect(() => {
     if (user && socket && !hasJoined.current) {
@@ -63,15 +74,23 @@ function Dashboard() {
     });
 
     socket.on("callToUser", (data) => {
+      // ringtone.play();
       setRecivingCall(true);
       setCaller(data);
       setCallerSignal(data.signal);
+    });
+
+    socket.on("callEnded", (data) => {
+      console.log("call end by", data.name);
+      ringtone.stop();
+      endCallCleanUp();
     });
 
     socket.on("callRejected", (data) => {
       console.log("Received callRejected", data);
       setCallRejectedPopUp(true);
       setCallRejectedUser(data);
+      ringtone.stop();
     });
 
     socket.on("userUnavailable", (data) => {
@@ -81,6 +100,10 @@ function Dashboard() {
     return () => {
       socket.off("me");
       socket.off("online-users");
+      socket.off("callToUser");
+      socket.off("callEnded");
+      socket.off("callRejected");
+      socket.off("userUnavailable");
     };
   }, [user, socket]);
 
@@ -131,7 +154,7 @@ function Dashboard() {
       currentStream.getVideoTracks().forEach((track) => (track.enabled = true));
       setIsSidebarOpen(false);
       setCallRejectedPopUp(false);
-      setSelectedUser(showReciverDetails._id)
+      setSelectedUser(showReciverDetails._id);
       // console.log("selecytew",showReciverDetails._id)
 
       const peer = new Peer({
@@ -161,7 +184,7 @@ function Dashboard() {
       });
 
       socket.once("callAccepted", (data) => {
-        console.log("this is data",data?.form)
+        console.log("this is data", data?.form);
         setCallRejectedPopUp(false);
         setCallAccepted(true);
         setCaller(data.from);
@@ -176,6 +199,7 @@ function Dashboard() {
   };
 
   const handelacceptCall = async () => {
+    ringtone.stop();
     try {
       // console.log("hello")
       const currentStream = await navigator.mediaDevices.getUserMedia({
@@ -228,7 +252,17 @@ function Dashboard() {
     }
   };
 
+  const handelendCall = () => {
+     ringtone.stop();
+    socket.emit("call-ended", {
+      to: caller.from || selectedUser,
+      name: user.user.username,
+    });
+    endCallCleanUp();
+  };
+
   const handleRejectCall = () => {
+     ringtone.stop();
     setRecivingCall(false);
     setCallAccepted(false);
 
@@ -239,11 +273,54 @@ function Dashboard() {
     });
   };
 
+  const endCallCleanUp = () => {
+    if (stream) {
+      stream.getTracks().forEach((track) => track.stop());
+    }
+    if (reciverVideo.current) {
+      reciverVideo.current.srcObject = null;
+    }
+    if (myVideo.current) {
+      myVideo.current.srcObject = null;
+    }
+
+    connectionRef.current?.destroy();
+
+    ringtone.stop();
+    setStream(null);
+    setRecivingCall(false);
+    setCallAccepted(false);
+    setSelectedUser(null);
+    // setTimeout(() => {
+    //   window.location.reload();
+    // }, 100);
+  };
+
+   const toggleMic = () => {
+    if (stream) {
+      const audioTrack = stream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !isMicOn;
+        setIsMicOn(audioTrack.enabled);
+      }
+    }
+  };
+
+   const toggleCam = () => {
+    if (stream) {
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !isCamOn;
+        setIsCamOn(videoTrack.enabled);
+      }
+    }
+  };
+
   const handleLogout = async () => {
-    // if (callAccepted || reciveCall) {
-    //   alert("You must end the call before logging out.");
-    //   return;
-    // }
+    if (callAccepted || recivingCall) {
+      alert("You must end the call before logging out.");
+      return;
+    }
     try {
       await apiClient.post("/auth/logout");
       socket.off("disconnect");
@@ -368,6 +445,51 @@ function Dashboard() {
                 playsInline
                 className="w-32 h-40 md:w-56 md:h-52 object-cover rounded-lg"
               />
+            </div>
+
+            {/* Username + Sidebar Button */}
+            <div className="absolute top-4 left-4 text-white text-lg font-bold flex gap-2 items-center">
+              <button
+                type="button"
+                className="md:hidden text-2xl text-white cursor-pointer"
+                onClick={() => setIsSidebarOpen(true)}>
+                <FaBars />
+              </button>
+              {caller?.username || "Caller"}
+            </div>
+
+            {/* Call Controls */}
+            <div className="absolute bottom-4 w-full flex justify-center gap-4">
+              <button
+                type="button"
+                className="bg-red-600 p-4 rounded-full text-white shadow-lg cursor-pointer"
+                onClick={handelendCall}>
+                <FaPhoneSlash size={24} />
+              </button>
+
+              {/* 🎤 Toggle Mic */}
+              <button
+                type="button"
+                // onClick={toggleMic}
+                className={`p-4 rounded-full text-white shadow-lg cursor-pointer transition-colors ${
+                  isMicOn ? "bg-green-600" : "bg-red-600"
+                }`}>
+                {isMicOn ? (
+                  <FaMicrophone size={24} />
+                ) : (
+                  <FaMicrophoneSlash size={24} />
+                )}
+              </button>
+
+              {/* 📹 Toggle Video */}
+              <button
+                type="button"
+                // onClick={toggleCam}
+                className={`p-4 rounded-full text-white shadow-lg cursor-pointer transition-colors ${
+                  isCamOn ? "bg-green-600" : "bg-red-600"
+                }`}>
+                {isCamOn ? <FaVideo size={24} /> : <FaVideoSlash size={24} />}
+              </button>
             </div>
           </div>
         ) : (

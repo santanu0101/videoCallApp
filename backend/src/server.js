@@ -107,6 +107,11 @@ io.on("connection", (socket) => {
     })
   })
 
+  socket.on("call-ended",(data)=>{
+    io.to(data.to).emit("callEnded",{
+      name:data.name,
+    })
+  })
 
   socket.on("reject-call",(data)=>{
     // console.log(data)
